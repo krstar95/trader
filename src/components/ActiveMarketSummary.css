@@ -1,0 +1,34 @@
+.active-summary{
+	color: #83888c;
+	text-align: center;
+	font-size: 14px;
+	background: #1d262c;
+	line-height: 22px;
+	padding: 8px !important;
+}
+.active-summary .values{
+	font-weight: bold;
+}
+.active-summary .grid_header{
+	font-weight: bold;
+	font-size: 16px;
+	color: white;
+}
+.active-summary .decrease{
+	color: #f87a7c;
+}
+.active-summary .increase{
+	color: #62da88;
+}
+
+.active-summary .market-base-icon {
+	position: fixed;
+	z-index: 100;
+	width: 75px;
+}
+
+.active-summary .market-quote-icon {
+	opacity: 0.5;
+	margin-left: 36px;
+	width: 75px;
+}

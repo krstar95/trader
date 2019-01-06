@@ -1,0 +1,50 @@
+.order-form {
+  background-color: #3a444d !important;
+  padding: 0 !important;
+  text-align: left;
+}
+
+
+.section-tab {
+  background-color: hsla(0,0%,100%,.15) !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+.section-tab .item {
+  border-radius: 0 !important;
+}
+
+.input-container {
+  position: relative;
+}
+
+.quantity-input input {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  color: white !important;
+  padding-right: 3em !important;
+}
+
+.price-input input {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  color: white !important;
+  padding-right: 3em !important;
+}
+
+.asset-label {
+  position: absolute;
+  right: 25px;
+  top: 8px;
+}
+
+.highlight-text {
+  color: white;
+  font-size: 120%;
+  font-weight: bold;
+}
+
+.order-btn {
+  border-radius: 0 !important;
+}

@@ -1,0 +1,302 @@
+syntax = "proto3";
+
+package markets;
+
+import "google/protobuf/timestamp.proto";
+
+message Price {
+  uint64 price = 1;
+  uint64 size = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message BBO {
+  Price bidPrice = 1;
+  Price askPrice = 2;
+  Price lastTradePrice = 3;
+}
+
+enum Side {
+  BUY = 0;
+  SELL = 1;
+}
+
+message Trade {
+  google.protobuf.Timestamp timestamp = 7;
+  uint64 price = 8;
+  uint64 size = 9;
+  Side taker = 2;
+  uint32 bidID = 3;
+  uint32 askID = 4;
+  uint32 buyer = 5;
+  uint32 seller = 6;
+
+  Price tradePrice = 1; // deprecated
+}
+
+message Trades {
+  repeated Trade trades = 1;
+  string market = 2;
+}
+
+enum OrderType {
+  GTC = 0;  // Good 'Til Canceled
+  AON = 1;  // All Or None
+  IOC = 2;  // Immediate Or Cancel
+  FOK = 3;  // Fill Or Kill (both AON and IOC)
+  STOP = 4; // Stop order
+}
+
+enum ModifyType {
+  PRICE = 0;
+  QUANTITY = 1;
+  PRICE_AND_QUANTITY = 2;
+}
+
+// topic order.<market_symbol>.<user_id>.<profile_id>.<pocket_id>
+//
+message NewOrder {
+  string clOrdID = 1;       // opaque client order ID, max len 36
+  uint32 orderIDParent = 2; // (optional) parent orderID
+  Side side = 3;
+  OrderType orderType = 4;
+  uint64 price = 5;        // market price if 0
+  uint64 quantity = 6;
+  uint64 stopPrice = 7;    // used if orderType is STOP
+
+  // Client must leave the following fields undefined when publishing a NewOrder.
+  //
+  uint32 orderID = 8;       // sequential ID assigned by system
+  google.protobuf.Timestamp timestamp = 9; // timestamp assigned by system
+  uint64 held = 10;         // funds held in escrow to complete the order
+}
+
+message ClientKey {
+  uint32 pocketID = 1; // pocket ID
+  string clOrdID = 2;  // client order ID, max len 36
+}
+
+// topic cancel.<market_symbol>.<user_id>
+//
+message CancelOrder {
+  string requestID = 1;      // (optional) client's unique request ID, max len 36
+  google.protobuf.Timestamp timestamp = 2; // internal, set by system
+  oneof key {                // either one of:
+    uint32 orderID = 3;      // - Order.orderID, if client knows it
+    ClientKey clientKey = 4; // - else use client's own clOrdID
+  }
+}
+
+enum CancelStatusCode {
+  CS_NEW = 0;      // new cancel in flight to order_router
+  CS_PENDING = 1;  // accepted by order_router, sent to destination
+  CS_ACCEPTED = 2; // accepted by destination, order has been canceled
+  CS_REJECTED = 3; // rejected by order_router or destination
+}
+
+// topic cancel_status.<market_symbol>.<user_id>.<profile_id>.<pocket_id>
+//
+message CancelStatus {
+  string requestID = 1;
+  uint32 orderID = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  CancelStatusCode code = 4;
+  string reason = 5;
+}
+
+message ModifyOrder {
+  uint32 userID = 1;
+  uint32 profileID = 2;
+  uint32 pocketID = 3;
+  uint32 orderID = 4;
+  ModifyType modifyType = 5;
+  uint64 price = 6;        // market price if 0
+  uint64 quantity = 7;
+}
+
+// topic action.<symbol>.<user_id>.<profile_id>.<pocket_id>
+//
+message Action {
+  google.protobuf.Timestamp timestamp = 4; // defines a global ordering over all actions
+  oneof msg {
+    NewOrder newOrder = 1;
+    CancelOrder cancelOrder = 2;
+    ModifyOrder modifyOrder = 3;
+  }
+}
+
+enum OrderStatusCode {
+  OS_NEW = 0;          // new order in flight to order_router
+  OS_PENDING = 1;      // accepted by the order_router, sent to destination
+  OS_REJECTED = 2;     // rejected by order_router or destination
+  OS_OPEN = 3;         // order is open, accepted by destination, and will be booked or filled
+  OS_CANCELED = 4;     // order is closed, has been canceled by user
+  OS_PARTIAL_FILL = 5; // order is open and partially filled
+  OS_FILLED = 6;       // order is closed and filled completely
+}
+
+message Fill {
+  Side side = 1;
+  uint64 price = 2;
+  uint64 size = 3;
+  bool took = 4;
+}
+
+message FillEvent {
+  google.protobuf.Timestamp timestamp = 1;
+  string market = 5;
+  uint32 orderID = 4;
+  string clOrdID = 2;
+  Fill fill = 3;
+}
+
+message FillEventList {
+  repeated FillEvent fills = 1;
+}
+
+message OrderStatusEvent {
+  google.protobuf.Timestamp timestamp = 1;
+  OrderStatusCode code = 2;
+
+  oneof msg {
+    string reason = 3;
+    Fill fill = 4;
+  }
+
+  string market = 5;
+  Side side = 6;
+  OrderType orderType = 7;
+  uint64 price = 8;
+  uint64 quantity = 9;
+  uint64 stopPrice = 10;
+}
+
+message OrderStatus {
+  uint32 orderID = 1;
+  uint32 orderIDParent = 2;
+  string clOrdID = 3;
+  OrderStatusEvent event = 4;
+  uint64 filled = 5;
+  uint64 filledCost = 6;
+}
+
+message Order {
+  uint32 userID = 1;
+  uint32 profileID = 2;
+  uint32 pocketID = 3;
+  string clOrdID = 4;       // opaque client order ID, max len 36
+  uint32 orderID = 5;       // sequential system order ID
+  uint32 orderIDParent = 6; // parent orderID
+  string market = 7;        // e.g. 'CONNECT|LUS'
+  Side side = 8;
+  OrderType orderType = 9;
+  uint64 price = 10;        // market price if 0
+  uint64 quantity = 11;
+  uint64 stopPrice = 12;    // used if orderType is STOP
+  google.protobuf.Timestamp timestamp = 13; // internal, set by system
+  OrderStatusCode status = 14;
+  uint64 filled = 15;
+  uint64 filledCost = 16;
+  repeated OrderStatusEvent history = 17;
+}
+
+message OrderList {
+  repeated Order orders = 1;
+}
+
+message Date {
+  uint32 year = 1;
+  uint32 month = 2;
+  uint32 day = 3;
+}
+
+// nullable signed price field
+message px {
+  sint64 val = 1;
+}
+
+// nullable unsigned size field
+message sz {
+  uint64 val = 1;
+}
+
+message Summary {
+  google.protobuf.Timestamp timestamp = 1;
+  string symbol = 2;  // market symbol
+  Date day = 3;       // current trading session day
+  px closePrior = 5;  // prior session's closing price
+  px closePrior24 = 4;// last trade price before 24h ago
+  px open = 6;        // first trade price since session start
+  px open24 = 26;     // first trade price since 24h ago
+  px high = 7;        // session high trade price
+  px high24 = 8;      // 24h high
+  px low = 9;         // session low trade price
+  px low24 = 10;      // 24h low
+  px last = 11;       // last trade price
+  sz lastQty = 12;    // size of last trade
+  sz lastQtyCum = 13; // cumulative qty at last price since change
+  px lastPrior = 14;  // prior distinct last trade price
+  google.protobuf.Timestamp lastTime = 15; // time of last trade
+  sz volume = 16;     // session volume
+  sz volume24 = 17;   // 24-hour volume
+  sz volumeCum = 18;  // cumulative market volume since inception
+  px bid = 19;        // current best bid price
+  sz bidQty = 20;     // current best bid size
+  px bidPrior = 21;   // prior distinct bid price
+  px ask = 22;        // current best offer price
+  sz askQty = 23;     // current best offer size
+  px askPrior = 24;   // prior distinct offer price
+  uint32 flags = 25;  // bitmask: LSB 1: new trade
+}
+
+message Position {
+  uint64 available = 1;
+  uint64 open = 2;
+  uint64 pending = 3;
+}
+
+message Wallet {
+  string asset = 1;
+  Position position = 2;
+}
+
+message Pocket {
+  uint32 profileID = 1;
+  string name = 2;
+  repeated Wallet wallets = 3;
+}
+
+// open- and/or closed-ended time interval
+//
+message Interval {
+  google.protobuf.Timestamp begin = 1;
+  google.protobuf.Timestamp end = 2;
+}
+
+message Segment {
+  Interval domain = 1;
+  oneof series {
+    Trades trades = 2;
+  }
+}
+
+message Continuum {
+  string topic = 1;
+  oneof data {
+    Segment segment = 2;
+    Trade trade = 3;
+  }
+}
+
+message AuthInfo {
+  bool isAuthorized = 10;
+  string sessionKey = 1;
+  uint32 userID = 2;
+  uint32 profileID = 3;
+  uint32 pocketID = 4;
+  string jwt = 5;
+  string mqttHost = 6;
+  string mqttPort = 7;
+  string mdsHost = 8;
+  string mdsPort = 9;
+}
